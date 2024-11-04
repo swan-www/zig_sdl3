@@ -1,0 +1,15 @@
+.{
+    .name = "zig_sdl3",
+    .version = "3.1.6",
+	.minimum_zig_version = "0.12.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+    },
+    .dependencies = .{
+        .sdl = .{
+            .url = "https://github.com/libsdl-org/SDL/archive/refs/tags/preview-3.1.6.tar.gz",
+            .hash = "122099f4cc54e09ca76cb1b5c9d32f6809dab17c53c0d81dbc07fb3bf52c2ac8a793",
+        },
+    },
+}
