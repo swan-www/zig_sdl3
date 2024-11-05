@@ -80,6 +80,12 @@ pub fn build(b: *std.Build) !void {
     //Reference this lib through the depenendency in your own build.zig, and link against it.
     b.installArtifact(sdl_lib);
 
+    //Add the licenses to the lib directory
+    sdl_lib.installHeader(sdl.path("LICENSE.txt"), "../lib/SDL_LICENSE.txt");
+    sdl_lib.installHeader(sdl.path("CREDITS.md"), "../lib/SDL_CREDITS.md");
+    sdl_lib.installHeader(sdl.path("src/video/yuv2rgb/LICENSE"), "../lib/yuv2rgb_LICENSE");
+    sdl_lib.installHeader(sdl.path("src/hidapi/LICENSE-bsd.txt"), "../lib/hidapi_LICENSE.txt");
+
     const translate_sdl_header = b.addTranslateC(.{
         .root_source_file = sdl.path("include/SDL3/SDL.h"),
         .target = target,
