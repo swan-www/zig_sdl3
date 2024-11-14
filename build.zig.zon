@@ -15,17 +15,9 @@
             .url = "https://github.com/swan-www/SDL_gpu_shadercross/archive/3385fb5c8b802abe8208ece01ffee6b5ef743867.zip",
             .hash = "12202b93a61d80a5c1c04c7e453792bde62bae75aea352c18b2bf866e8f0b96515af",
         },
-        .spirv_cross_win = .{
-            .url = "https://github.com/swan-www/SPIRV-Cross/releases/download/11_06_2024/windows_binaries.zip",
-            .hash = "12206316c815f976ee60f864a97e33e3c9ef54f5e6fee37799137c3bd9232733ac07",
-        },
-        .spirv_cross_macos = .{
-            .url = "https://github.com/swan-www/SPIRV-Cross/releases/download/11_06_2024/macos_binaries.zip",
-            .hash = "12207b25d3e037e6202348ecf2aa6c63b1bf5e988c10092ab4374d222e8a66afe225",
-        },
-        .spirv_cross_ubuntu_20 = .{
-            .url = "https://github.com/swan-www/SPIRV-Cross/releases/download/11_06_2024/ubuntu_binaries.zip",
-            .hash = "122048387e31932e6cf7d760ac2726236c5c5399e69c69f969f1ed798cf87fe43c93",
+        .spirv_cross = .{
+            .url = "https://github.com/swan-www/SPIRV-Cross/archive/refs/tags/11_06_2024.tar.gz",
+            .hash = "12202e231626c14ae8be8847ff8b84edad52666abeb0d786031dd2cd0e49ccce8932",
         },
     },
 }
