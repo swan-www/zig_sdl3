@@ -10,8 +10,7 @@ pub fn lazy_from_path(path_chars: []const u8, owner: *std.Build) std.Build.LazyP
     } else unreachable;
 }
 
-pub fn get_dxil_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
-    var dxil_path: ?[]const u8 = null;
+pub fn get_winsdk_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
     if (target.result.os.tag == .windows) {
         const win_sdk = try std.zig.WindowsSdk.find(b.allocator);
         defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
@@ -19,12 +18,34 @@ pub fn get_dxil_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const 
             std.debug.print("Windows 10 SDK could not be found.", .{});
             return null;
         } else {
-            const win_sdk_path = win_sdk.windows10sdk.?.path;
-            const win_sdk_ver = win_sdk.windows10sdk.?.version;
-            const winrt_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Include", win_sdk_ver, "winrt" });
-            defer b.allocator.free(winrt_path);
-            dxil_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Redist/D3D/x64/dxil.dll" });
+            const win_sdk_path = try b.allocator.dupe(u8, win_sdk.windows10sdk.?.path);
+            return win_sdk_path;
         }
+    }
+    return null;
+}
+
+pub fn get_winrt_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
+    if (target.result.os.tag == .windows) {
+        const win_sdk_path = (try get_winsdk_path(b, target)) orelse return null;
+        const win_sdk = try std.zig.WindowsSdk.find(b.allocator);
+        defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
+        if (win_sdk.windows10sdk == null) {
+            std.debug.print("Windows 10 SDK could not be found.", .{});
+            return null;
+        }
+        const win_sdk_ver = try b.allocator.dupe(u8, win_sdk.windows10sdk.?.version);
+        const winrt_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Include", win_sdk_ver, "winrt" });
+        return winrt_path;
+    }
+    return null;
+}
+
+pub fn get_dxil_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
+    var dxil_path: ?[]const u8 = null;
+    if (target.result.os.tag == .windows) {
+        const win_sdk_path = (try get_winsdk_path(b, target)) orelse return null;
+        dxil_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Redist/D3D/x64/dxil.dll" });
     }
     return dxil_path;
 }
