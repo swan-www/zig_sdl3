@@ -10,7 +10,7 @@ pub fn lazy_from_path(path_chars: []const u8, owner: *std.Build) std.Build.LazyP
     } else unreachable;
 }
 
-pub fn get_dxil_path(b: *std.Build, target: std.build.ResolvedTarget, optimize: std.builtin.OptimizeMode) ?[]const u8
+pub fn get_dxil_path(b: *std.Build, target: std.build.ResolvedTarget) ?[]const u8
 {
     var dxil_path : ?[]const u8 = null;
     if (target.result.os.tag == .windows) {
