@@ -150,6 +150,9 @@ pub fn build(b: *std.Build) !void {
     sdl_lib.installHeader(sdl.path("CREDITS.md"), "../lib/SDL_CREDITS.md");
     sdl_lib.installHeader(sdl.path("src/video/yuv2rgb/LICENSE"), "../lib/yuv2rgb_LICENSE");
     sdl_lib.installHeader(sdl.path("src/hidapi/LICENSE-bsd.txt"), "../lib/hidapi_LICENSE.txt");
+    
+    sdl_lib.installHeadersDirectory(sdl.path("include"), "", .{ .include_extensions = &.{ ".h" } });
+    sdl_lib.installHeadersDirectory(sdl.path("include/build_config"), "", .{ .include_extensions = &.{ ".h" } });
 
     const translate_sdl_header = b.addTranslateC(.{
         .root_source_file = lazy_from_path("translate_include.h", b),
