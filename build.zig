@@ -12,7 +12,7 @@ pub fn lazy_from_path(path_chars: []const u8, owner: *std.Build) std.Build.LazyP
 
 pub fn get_winsdk_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
     if (target.result.os.tag == .windows) {
-        const win_sdk = try std.zig.WindowsSdk.find(b.allocator);
+        const win_sdk = try std.zig.WindowsSdk.find(b.allocator, target.result.cpu.arch);
         defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
         if (win_sdk.windows10sdk == null) {
             std.debug.print("Windows 10 SDK could not be found.", .{});
@@ -28,7 +28,7 @@ pub fn get_winsdk_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]cons
 pub fn get_winrt_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
     if (target.result.os.tag == .windows) {
         const win_sdk_path = (try get_winsdk_path(b, target)) orelse return null;
-        const win_sdk = try std.zig.WindowsSdk.find(b.allocator);
+        const win_sdk = try std.zig.WindowsSdk.find(b.allocator, target.result.cpu.arch);
         defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
         if (win_sdk.windows10sdk == null) {
             std.debug.print("Windows 10 SDK could not be found.", .{});
@@ -77,10 +77,10 @@ pub fn build(b: *std.Build) !void {
 
     const sdl = b.dependency("sdl", .{});
 
-    const sdl_lib = b.addStaticLibrary(.{
+    const sdl_lib = b.addLibrary(.{
         .name = "sdl3",
-        .optimize = optimize,
-        .target = target,
+        .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
+        .linkage = .static,
     });
 
     sdl_lib.linkLibC();
@@ -95,10 +95,10 @@ pub fn build(b: *std.Build) !void {
 
     var dxil_path: ?[]const u8 = null;
     if (target.result.os.tag == .windows) {
-        sdl_lib.defineCMacro("_WINDOWS", null);
-        sdl_lib.defineCMacro("_WIN32", null);
+        sdl_lib.root_module.addCMacro("_WINDOWS", "");
+        sdl_lib.root_module.addCMacro("_WIN32", "");
 
-        const win_sdk = try std.zig.WindowsSdk.find(b.allocator);
+        const win_sdk = try std.zig.WindowsSdk.find(b.allocator, target.result.cpu.arch);
         defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
         if (win_sdk.windows10sdk == null) {
             std.debug.print("Windows 10 SDK could not be found.", .{});
@@ -115,7 +115,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     if (target.result.abi.isGnu()) {
-        sdl_lib.defineCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", null);
+        sdl_lib.root_module.addCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", "");
     }
 
     switch (target.result.os.tag) {
@@ -159,7 +159,7 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
-    translate_sdl_header.addIncludeDir(sdl.path("include").getPath(b));
+    translate_sdl_header.addIncludePath(sdl.path("include"));
     if (target.result.os.tag == .windows) {
         translate_sdl_header.defineCMacroRaw("_WINDOWS=");
         translate_sdl_header.defineCMacroRaw("_WIN32=");
@@ -181,10 +181,10 @@ pub fn build(b: *std.Build) !void {
     });
 
     if (sdl_shader) {
-        const sdl_shadercross_lib = b.addStaticLibrary(.{
+        const sdl_shadercross_lib = b.addLibrary(.{
             .name = "sdl3_gpu_shadercross",
-            .optimize = optimize,
-            .target = target,
+            .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
+            .linkage = .static,
         });
 
         const sdl_shadercross = b.dependency("sdl_shadercross", .{});
@@ -244,14 +244,14 @@ pub fn build(b: *std.Build) !void {
             });
         }
 
-        sdl_shadercross_lib.defineCMacro("SPIRV_CROSS_VERSION", "0.64.0");
-        sdl_shadercross_lib.defineCMacro("SDL_GPU_SHADERCROSS_SPIRVCROSS", "1");
+        sdl_shadercross_lib.root_module.addCMacro("SPIRV_CROSS_VERSION", "0.64.0");
+        sdl_shadercross_lib.root_module.addCMacro("SDL_GPU_SHADERCROSS_SPIRVCROSS", "1");
         if (target.result.os.tag == .windows) {
-            sdl_shadercross_lib.defineCMacro("_WINDOWS", null);
-            sdl_shadercross_lib.defineCMacro("_WIN32", null);
+            sdl_shadercross_lib.root_module.addCMacro("_WINDOWS", "");
+            sdl_shadercross_lib.root_module.addCMacro("_WIN32", "");
         }
         if (target.result.abi.isGnu()) {
-            sdl_shadercross_lib.defineCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", null);
+            sdl_shadercross_lib.root_module.addCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", "");
         }
 
         sdl_shadercross_lib.addCSourceFiles(.{
@@ -274,10 +274,10 @@ pub fn build(b: *std.Build) !void {
 
         translate_sdl_header.defineCMacroRaw("ZIG_SDL_SHADERCROSS=");
         translate_sdl_header.defineCMacroRaw("SDL_GPU_SHADERCROSS_SPIRVCROSS=1");
-        translate_sdl_header.addIncludeDir(sdl_shadercross.path("include").getPath(b));
+        translate_sdl_header.addIncludePath(sdl_shadercross.path("include"));
 
         if (build_demo) {
-            const demo_exe = b.addExecutable(.{ .name = "demo", .target = target, .optimize = optimize, .root_source_file = b.path("example/demo.zig") });
+            const demo_exe = b.addExecutable(.{ .name = "demo", .root_module = b.createModule(.{ .target=target, .optimize=optimize, .root_source_file = b.path("example/demo.zig"), }), });
             demo_exe.root_module.addImport("sdl", sdl_module);
             demo_exe.linkLibrary(sdl_lib);
             demo_exe.linkLibrary(sdl_shadercross_lib);
