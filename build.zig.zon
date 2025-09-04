@@ -13,15 +13,15 @@
     .dependencies = .{
         .sdl = .{
             .url = "https://github.com/libsdl-org/SDL/archive/refs/tags/preview-3.1.6.tar.gz",
-            .hash = "122099f4cc54e09ca76cb1b5c9d32f6809dab17c53c0d81dbc07fb3bf52c2ac8a793",
+            .hash = "N-V-__8AAE_C-gKZ9MxU4JynbLG1ydMvaAnasXxTwNgdvAf7",
         },
         .sdl_shadercross = .{
             .url = "https://github.com/swan-www/SDL_gpu_shadercross/archive/3385fb5c8b802abe8208ece01ffee6b5ef743867.zip",
-            .hash = "12202b93a61d80a5c1c04c7e453792bde62bae75aea352c18b2bf866e8f0b96515af",
+            .hash = "N-V-__8AANBEAgArk6YdgKXBwEx-RTeSveYrrnWuo1LBiyv4",
         },
         .spirv_cross = .{
             .url = "https://github.com/swan-www/SPIRV-Cross/archive/refs/tags/11_06_2024.tar.gz",
-            .hash = "12202e231626c14ae8be8847ff8b84edad52666abeb0d786031dd2cd0e49ccce8932",
+            .hash = "N-V-__8AAHyTqgAuIxYmwUrovohH_4uE7a1SZmq-sNeGAx3S",
         },
     },
 }
