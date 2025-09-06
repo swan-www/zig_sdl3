@@ -1,6 +1,6 @@
 .{
     .name = .zig_sdl3,
-    .version = "3.1.6",
+    .version = "3.2.22",
     .minimum_zig_version = "0.15.1",
     .fingerprint = 0xa9e215cc5e9a3f4b,
     .paths = .{
@@ -12,12 +12,12 @@
     },
     .dependencies = .{
         .sdl = .{
-            .url = "https://github.com/libsdl-org/SDL/archive/refs/tags/preview-3.1.6.tar.gz",
-            .hash = "N-V-__8AAE_C-gKZ9MxU4JynbLG1ydMvaAnasXxTwNgdvAf7",
+            .url = "https://github.com/libsdl-org/SDL/archive/refs/tags/release-3.2.22.zip",
+            .hash = "N-V-__8AAKFOjAPblBRKaUrjSSH-09iZsd0hSjTHMs3Wj2BE",
         },
         .sdl_shadercross = .{
-            .url = "https://github.com/swan-www/SDL_gpu_shadercross/archive/3385fb5c8b802abe8208ece01ffee6b5ef743867.zip",
-            .hash = "N-V-__8AANBEAgArk6YdgKXBwEx-RTeSveYrrnWuo1LBiyv4",
+            .url = "https://github.com/swan-www/SDL_gpu_shadercross/archive/4ce748310f57d405b4eb2a79fbbc7e974d6491ec.zip",
+            .hash = "N-V-__8AAK6dBgDKzOL6Kc6ci8hWG6YydwPBNWxAiY70xGeG",
         },
         .spirv_cross = .{
             .url = "https://github.com/swan-www/SPIRV-Cross/archive/refs/tags/11_06_2024.tar.gz",

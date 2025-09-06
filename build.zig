@@ -83,6 +83,8 @@ pub fn build(b: *std.Build) !void {
         .linkage = .static,
     });
 
+    b.addNamedLazyPath("sdl_include_path", sdl.path("include"));
+
     sdl_lib.linkLibC();
     sdl_lib.addIncludePath(sdl.path("include"));
     sdl_lib.addIncludePath(sdl.path("include/build_config"));
@@ -142,7 +144,7 @@ pub fn build(b: *std.Build) !void {
         },
     }
 
-    //Reference this lib through the depenendency in your own build.zig, and link against it.
+    //Reference this lib through the dependency in your own build.zig, and link against it.
     b.installArtifact(sdl_lib);
 
     //Add the licenses to the lib directory
@@ -182,7 +184,7 @@ pub fn build(b: *std.Build) !void {
 
     if (sdl_shader) {
         const sdl_shadercross_lib = b.addLibrary(.{
-            .name = "sdl3_gpu_shadercross",
+            .name = "sdl3_shadercross",
             .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
             .linkage = .static,
         });
@@ -245,10 +247,10 @@ pub fn build(b: *std.Build) !void {
         }
 
         sdl_shadercross_lib.root_module.addCMacro("SPIRV_CROSS_VERSION", "0.64.0");
-        sdl_shadercross_lib.root_module.addCMacro("SDL_GPU_SHADERCROSS_SPIRVCROSS", "1");
+        sdl_shadercross_lib.root_module.addCMacro("SDL_SHADERCROSS_SPIRVCROSS", "1");
         if (target.result.os.tag == .windows) {
             sdl_shadercross_lib.root_module.addCMacro("_WINDOWS", "");
-            sdl_shadercross_lib.root_module.addCMacro("_WIN32", "");
+            //sdl_shadercross_lib.root_module.addCMacro("_WIN32", "");
         }
         if (target.result.abi.isGnu()) {
             sdl_shadercross_lib.root_module.addCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", "");
@@ -257,23 +259,23 @@ pub fn build(b: *std.Build) !void {
         sdl_shadercross_lib.addCSourceFiles(.{
             .root = sdl_shadercross.path("src"),
             .files = &.{
-                "SDL_gpu_shadercross.c",
+                "SDL_shadercross.c",
             },
         });
         sdl_shadercross_lib.addIncludePath(sdl_shadercross.path("include"));
         sdl_shadercross_lib.addIncludePath(spirv_cross.path(""));
         sdl_shadercross_lib.addIncludePath(sdl.path("include"));
         sdl_shadercross_lib.linkLibrary(sdl_lib);
-        sdl_shadercross_lib.installHeader(sdl_shadercross.path("include/SDL3_gpu_shadercross/SDL_gpu_shadercross.h"), "SDL_gpu_shadercross.h");
+        sdl_shadercross_lib.installHeader(sdl_shadercross.path("include/SDL3_shadercross/SDL_shadercross.h"), "SDL_shadercross.h");
 
         //Licenses
-        sdl_shadercross_lib.installHeader(sdl_shadercross.path("LICENSE.txt"), "../lib/sdl3_gpu_shadercross_LICENSE.txt");
+        sdl_shadercross_lib.installHeader(sdl_shadercross.path("LICENSE.txt"), "../lib/sdl3_shadercross_LICENSE.txt");
         sdl_shadercross_lib.installHeader(spirv_cross.path("LICENSE"), "../lib/spirv_cross_LICENSE");
 
         b.installArtifact(sdl_shadercross_lib);
 
         translate_sdl_header.defineCMacroRaw("ZIG_SDL_SHADERCROSS=");
-        translate_sdl_header.defineCMacroRaw("SDL_GPU_SHADERCROSS_SPIRVCROSS=1");
+        translate_sdl_header.defineCMacroRaw("SDL_SHADERCROSS_SPIRVCROSS=1");
         translate_sdl_header.addIncludePath(sdl_shadercross.path("include"));
 
         if (build_demo) {
@@ -345,6 +347,7 @@ const generic_src_files = [_][]const u8{
     "core/SDL_core_unsupported.c",
 
     "cpuinfo/SDL_cpuinfo.c",
+    "dialog/SDL_dialog.c",
     "dialog/SDL_dialog_utils.c",
     "dynapi/SDL_dynapi.c",
     "events/SDL_categories.c",
@@ -352,19 +355,26 @@ const generic_src_files = [_][]const u8{
     "events/SDL_displayevents.c",
     "events/SDL_dropevents.c",
     "events/SDL_events.c",
+    "events/SDL_eventwatch.c",
     "events/SDL_keyboard.c",
     "events/SDL_keymap.c",
+    "events/SDL_keysym_to_keycode.c",
+    "events/SDL_keysym_to_scancode.c",
     "events/SDL_mouse.c",
     "events/SDL_pen.c",
     "events/SDL_quit.c",
+    "events/SDL_scancode_tables.c",
     "events/SDL_touch.c",
     "events/SDL_windowevents.c",
-    "file/SDL_iostream.c",
+    "events/imKStoUCS.c",
     "filesystem/SDL_filesystem.c",
     "gpu/SDL_gpu.c",
     "haptic/SDL_haptic.c",
     "haptic/dummy/SDL_syshaptic.c",
     "hidapi/SDL_hidapi.c",
+    "io/SDL_asyncio.c",
+    "io/SDL_iostream.c",
+    "io/generic/SDL_asyncio_generic.c",
     "joystick/SDL_gamepad.c",
     "joystick/SDL_joystick.c",
     "joystick/SDL_steam_virtual_gamepad.c",
@@ -426,6 +436,12 @@ const generic_src_files = [_][]const u8{
     "render/SDL_render.c",
     "render/SDL_render_unsupported.c",
     "render/SDL_yuv_sw.c",
+    "render/direct3d/SDL_render_d3d.c",
+    "render/direct3d/SDL_shaders_d3d.c",
+    "render/direct3d11/SDL_render_d3d11.c",
+    "render/direct3d11/SDL_shaders_d3d11.c",
+    "render/direct3d12/SDL_render_d3d12.c",
+    "render/direct3d12/SDL_shaders_d3d12.c",
     "render/gpu/SDL_pipeline_gpu.c",
     "render/gpu/SDL_render_gpu.c",
     "render/gpu/SDL_shaders_gpu.c",
@@ -468,6 +484,8 @@ const generic_src_files = [_][]const u8{
     "thread/generic/SDL_sysrwlock.c",
     "time/SDL_time.c",
     "timer/SDL_timer.c",
+    "tray/SDL_tray_utils.c",
+    "tray/dummy/SDL_tray.c",
     "video/SDL_RLEaccel.c",
     "video/SDL_blit.c",
     "video/SDL_blit_0.c",
@@ -483,6 +501,7 @@ const generic_src_files = [_][]const u8{
     "video/SDL_fillrect.c",
     "video/SDL_pixels.c",
     "video/SDL_rect.c",
+    "video/SDL_stb.c",
     "video/SDL_stretch.c",
     "video/SDL_surface.c",
     "video/SDL_video.c",
@@ -506,19 +525,18 @@ const generic_src_files = [_][]const u8{
 const windows_src_files = [_][]const u8{
     "audio/directsound/SDL_directsound.c",
     "audio/wasapi/SDL_wasapi.c",
-    "audio/wasapi/SDL_wasapi_win32.c",
     "core/windows/SDL_hid.c",
     "core/windows/SDL_immdevice.c",
     "core/windows/SDL_windows.c",
     "core/windows/SDL_xinput.c",
     "filesystem/windows/SDL_sysfilesystem.c",
     "filesystem/windows/SDL_sysfsops.c",
-    "gpu/d3d11/SDL_gpu_d3d11.c",
     "gpu/d3d12/SDL_gpu_d3d12.c",
     "gpu/vulkan/SDL_gpu_vulkan.c",
     "dialog/windows/SDL_windowsdialog.c",
     "haptic/windows/SDL_dinputhaptic.c",
     "haptic/windows/SDL_windowshaptic.c",
+    "io/windows/SDL_asyncio_windows_ioring.c",
     "joystick/windows/SDL_dinputjoystick.c",
     "joystick/windows/SDL_rawinputjoystick.c",
     "joystick/windows/SDL_windows_gaming_input.c",
@@ -530,12 +548,6 @@ const windows_src_files = [_][]const u8{
     "misc/windows/SDL_sysurl.c",
     "power/windows/SDL_syspower.c",
     "process/windows/SDL_windowsprocess.c",
-    "render/direct3d/SDL_render_d3d.c",
-    "render/direct3d/SDL_shaders_d3d.c",
-    "render/direct3d11/SDL_render_d3d11.c",
-    "render/direct3d11/SDL_shaders_d3d11.c",
-    "render/direct3d12/SDL_render_d3d12.c",
-    "render/direct3d12/SDL_shaders_d3d12.c",
     "sensor/windows/SDL_windowssensor.c",
     "thread/windows/SDL_syscond_cv.c",
     "thread/windows/SDL_sysmutex.c",
@@ -545,6 +557,7 @@ const windows_src_files = [_][]const u8{
     "thread/windows/SDL_systls.c",
     "time/windows/SDL_systime.c",
     "timer/windows/SDL_systimer.c",
+    "tray/windows/SDL_tray.c",
     "video/windows/SDL_windowsclipboard.c",
     "video/windows/SDL_windowsevents.c",
     "video/windows/SDL_windowsframebuffer.c",

@@ -66,8 +66,9 @@ fn LoadShader(
     const code = sdl.SDL_LoadFile(fullPath.ptr, &codeSize) orelse return SDLError.FailedToLoadShaderFromDisk;
     defer sdl.SDL_free(code);
 
-    const shaderInfo = sdl.SDL_GPUShaderCreateInfo{ .code = @ptrCast(code), .code_size = codeSize, .entrypoint = "main", .format = sdl.SDL_GPU_SHADERFORMAT_SPIRV, .stage = stage, .num_samplers = samplerCount, .num_uniform_buffers = uniformBufferCount, .num_storage_buffers = storageBufferCount, .num_storage_textures = storageTextureCount };
-    const shader = sdl.SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(device, &shaderInfo) orelse return SDLError.FailedToCompileShaderFromSpirv;
+    const shaderInfo = sdl.SDL_ShaderCross_SPIRV_Info{ .bytecode = @ptrCast(code), .bytecode_size = codeSize, .entrypoint = "main", .shader_stage = stage, };
+    const shaderMeta = sdl.SDL_ShaderCross_GraphicsShaderMetadata{ .num_samplers = samplerCount, .num_uniform_buffers = uniformBufferCount, .num_storage_buffers = storageBufferCount, .num_storage_textures = storageTextureCount, };
+    const shader = sdl.SDL_ShaderCross_CompileGraphicsShaderFromSPIRV(device, &shaderInfo, &shaderMeta, 0) orelse return SDLError.FailedToCompileShaderFromSpirv;
 
     return shader;
 }
@@ -129,6 +130,7 @@ fn Init() !void {
 				},
 			},
 		},
+        .rasterizer_state = .{ .fill_mode = sdl.SDL_GPU_FILLMODE_FILL, },
 		.primitive_type = sdl.SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
 		.vertex_shader = vertexShader,
 		.fragment_shader = fragmentShader,
@@ -196,7 +198,7 @@ fn Draw() !void
 	const cmdbuf = sdl.SDL_AcquireGPUCommandBuffer(Device) orelse return SDLError.AcquireGPUCommandBufferFailed;
 
 	var swapchainTexture : ?*sdl.SDL_GPUTexture = null;
-	if (!sdl.SDL_AcquireGPUSwapchainTexture(cmdbuf, Window, &swapchainTexture, null, null)) return SDLError.AcquireGPUSwapchainTextureFailed;
+	if (!sdl.SDL_WaitAndAcquireGPUSwapchainTexture(cmdbuf, Window, &swapchainTexture, null, null)) return SDLError.AcquireGPUSwapchainTextureFailed;
 
 	if (swapchainTexture != null)
 	{
@@ -228,7 +230,7 @@ fn Quit() void {
     sdl.SDL_DestroyGPUDevice(Device);
 }
 
-fn appLifecycleWatcher(_: ?*anyopaque, event: [*c]sdl.SDL_Event) callconv(.C) bool {
+fn appLifecycleWatcher(_: ?*anyopaque, event: [*c]sdl.SDL_Event) callconv(.c) bool {
     //This callback may be on a different thread, so let's
     //push these events as USER events so they appear
     //in the main thread's event loop.
