@@ -82,6 +82,8 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
         .linkage = .static,
     });
+    sdl_lib.root_module.sanitize_c = .off;
+    sdl_lib.bundle_ubsan_rt = false;
 
     b.addNamedLazyPath("sdl_include_path", sdl.path("include"));
 
@@ -181,6 +183,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .root_source_file = translate_sdl_header.getOutput(),
     });
+    sdl_module.sanitize_c = .off;
 
     if (sdl_shader) {
         const sdl_shadercross_lib = b.addLibrary(.{
