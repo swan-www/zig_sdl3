@@ -66,6 +66,11 @@ fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables:
     }
 
     if (enables.spirv_cross_enable_hlsl) {
+        if (!enables.spirv_cross_enable_glsl)
+        {
+            _ = b.addFail("Must enable GLSL support to enable HLSL support.");
+        }
+
         comp.addCSourceFiles(.{
             .root = spirv_cross.path(""),
             .files = &spirv_cross_hlsl_src,
@@ -73,6 +78,11 @@ fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables:
     }
 
     if (enables.spirv_cross_enable_msl) {
+        if (!enables.spirv_cross_enable_glsl)
+        {
+            _ = b.addFail("Must enable GLSL support to enable MSL support.");
+        }
+
         comp.addCSourceFiles(.{
             .root = spirv_cross.path(""),
             .files = &spirv_cross_msl_src,
@@ -80,6 +90,11 @@ fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables:
     }
 
     if (enables.spirv_cross_enable_cpp) {
+        if (!enables.spirv_cross_enable_glsl)
+        {
+            _ = b.addFail("Must enable GLSL support to enable C++ support.");
+        }
+
         comp.addCSourceFiles(.{
             .root = spirv_cross.path(""),
             .files = &spirv_cross_cpp_src,
@@ -87,6 +102,11 @@ fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables:
     }
 
     if (enables.spirv_cross_enable_reflect) {
+        if (!enables.spirv_cross_enable_glsl)
+        {
+            _ = b.addFail("Must enable GLSL support to enable JSON reflection support.");
+        }
+
         comp.addCSourceFiles(.{
             .root = spirv_cross.path(""),
             .files = &spirv_cross_reflect_src,
@@ -94,6 +114,11 @@ fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables:
     }
 
     if (enables.spirv_cross_enable_c_api) {
+        if (enables.spirv_cross_enable_glsl) comp.root_module.addCMacro("SPIRV_CROSS_C_API_GLSL", "1");
+        if (enables.spirv_cross_enable_hlsl) comp.root_module.addCMacro("SPIRV_CROSS_C_API_HLSL", "1");
+        if (enables.spirv_cross_enable_msl) comp.root_module.addCMacro("SPIRV_CROSS_C_API_MSL", "1");
+        if (enables.spirv_cross_enable_cpp) comp.root_module.addCMacro("SPIRV_CROSS_C_API_CPP", "1");
+        if (enables.spirv_cross_enable_reflect) comp.root_module.addCMacro("SPIRV_CROSS_C_API_REFLECT", "1");
         comp.addCSourceFiles(.{
             .root = spirv_cross.path(""),
             .files = &spirv_cross_c_src,
