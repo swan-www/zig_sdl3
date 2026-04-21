@@ -1,7 +1,7 @@
 .{
     .name = .zig_sdl3,
     .version = "3.2.22",
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.15.2",
     .fingerprint = 0xa9e215cc5e9a3f4b,
     .paths = .{
         "build.zig",
@@ -23,5 +23,9 @@
             .url = "https://github.com/swan-www/SPIRV-Cross/archive/refs/tags/11_06_2024.tar.gz",
             .hash = "N-V-__8AAHyTqgAuIxYmwUrovohH_4uE7a1SZmq-sNeGAx3S",
         },
+        .dxc = .{
+            .url = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2602/dxc_2026_02_20.zip",
+            .hash = "N-V-__8AADDbugPLxR0FEAqeAI8CNrcbb863kmQ1S5T-wrI2",
+        }
     },
 }

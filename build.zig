@@ -25,30 +25,142 @@ pub fn get_winsdk_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]cons
     return null;
 }
 
-pub fn get_winrt_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
+pub const WinRtError = error{ Unavailable, };
+pub fn get_winrt_path(b: *std.Build, target: std.Build.ResolvedTarget) ![]const u8 {
     if (target.result.os.tag == .windows) {
-        const win_sdk_path = (try get_winsdk_path(b, target)) orelse return null;
+        const win_sdk_path = (try get_winsdk_path(b, target)) orelse return WinRtError.Unavailable;
         const win_sdk = try std.zig.WindowsSdk.find(b.allocator, target.result.cpu.arch);
         defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
         if (win_sdk.windows10sdk == null) {
-            std.debug.print("Windows 10 SDK could not be found.", .{});
-            return null;
+            _ = b.addFail("Windows 10 SDK could not be found.");
+            return WinRtError.Unavailable;
         }
         const win_sdk_ver = try b.allocator.dupe(u8, win_sdk.windows10sdk.?.version);
         const winrt_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Include", win_sdk_ver, "winrt" });
         return winrt_path;
     }
-    return null;
+    else
+    {
+        _ = b.addFail("WinRT not available on this target.");
+        return WinRtError.Unavailable;
+    }
 }
 
-pub fn get_dxil_path(b: *std.Build, target: std.Build.ResolvedTarget) !?[]const u8 {
-    var dxil_path: ?[]const u8 = null;
-    if (target.result.os.tag == .windows) {
-        const win_sdk_path = (try get_winsdk_path(b, target)) orelse return null;
-        dxil_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Redist/D3D/x64/dxil.dll" });
+fn install_shadercross(b: *std.Build, target: std.Build.ResolvedTarget, enables: SpirvCrossEnables, comp: *std.Build.Step.Compile, sdl_lib: *std.Build.Step.Compile) !void
+{
+    const sdl = b.dependency("sdl", .{});
+    const sdl_shadercross = b.dependency("sdl_shadercross", .{});
+    const spirv_cross = b.dependency("spirv_cross", .{});
+    const dxc = b.dependency("dxc", .{});
+
+    comp.addCSourceFiles(.{
+        .root = spirv_cross.path(""),
+        .files = &spirv_cross_core_src,
+    });
+
+    if (enables.spirv_cross_enable_glsl) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_glsl_src,
+        });
     }
-    return dxil_path;
+
+    if (enables.spirv_cross_enable_hlsl) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_hlsl_src,
+        });
+    }
+
+    if (enables.spirv_cross_enable_msl) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_msl_src,
+        });
+    }
+
+    if (enables.spirv_cross_enable_cpp) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_cpp_src,
+        });
+    }
+
+    if (enables.spirv_cross_enable_reflect) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_reflect_src,
+        });
+    }
+
+    if (enables.spirv_cross_enable_c_api) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_c_src,
+        });
+    }
+
+    if (enables.spirv_cross_enable_util) {
+        comp.addCSourceFiles(.{
+            .root = spirv_cross.path(""),
+            .files = &spirv_cross_util_src,
+        });
+    }
+
+    comp.root_module.addCMacro("SPIRV_CROSS_VERSION", "0.64.0");
+    comp.root_module.addCMacro("SDL_SHADERCROSS_SPIRVCROSS", "1");
+    if (target.result.os.tag == .windows) {
+        comp.root_module.addCMacro("_WINDOWS", "");
+
+        comp.root_module.addCMacro("SDLSHADERCROSS_DXC", "1");
+        comp.root_module.addCMacro("SDL_SHADERCROSS_DXC", "");
+        comp.root_module.addObjectFile(dxc.path("lib/x64/dxcompiler.lib"));
+    }
+    if (target.result.abi.isGnu()) {
+        comp.root_module.addCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", "");
+    }
+
+    comp.addCSourceFiles(.{
+        .root = sdl_shadercross.path("src"),
+        .files = &.{
+            "SDL_shadercross.c",
+        },
+    });
+    comp.addIncludePath(sdl_shadercross.path("include"));
+    comp.addIncludePath(spirv_cross.path(""));
+    comp.addIncludePath(sdl.path("include"));
+    comp.root_module.linkLibrary(sdl_lib);
+    comp.installHeader(sdl_shadercross.path("include/SDL3_shadercross/SDL_shadercross.h"), "SDL_shadercross.h");
+
+    //Licenses
+    comp.installHeader(sdl_shadercross.path("LICENSE.txt"), "../lib/sdl3_shadercross_LICENSE.txt");
+    comp.installHeader(spirv_cross.path("LICENSE"), "../lib/spirv_cross_LICENSE");
+
+    b.installArtifact(comp);
 }
+
+const SpirvCrossEnables = struct{
+    spirv_cross_enable_glsl : bool,
+    spirv_cross_enable_hlsl : bool,
+    spirv_cross_enable_msl : bool,
+    spirv_cross_enable_cpp : bool,
+    spirv_cross_enable_reflect : bool,
+    spirv_cross_enable_c_api : bool,
+    spirv_cross_enable_util : bool,
+
+    pub fn init(b: *std.Build) @This()
+    {
+        return .{
+            .spirv_cross_enable_glsl = b.option(bool, "SPIRV_CROSS_ENABLE_GLSL", "Set to true to enable compiling of this spirv feature.") orelse true,
+            .spirv_cross_enable_hlsl = b.option(bool, "SPIRV_CROSS_ENABLE_HLSL", "Set to true to enable compiling of this spirv feature.") orelse true,
+            .spirv_cross_enable_msl = b.option(bool, "SPIRV_CROSS_ENABLE_MSL", "Set to true to enable compiling of this spirv feature.") orelse true,
+            .spirv_cross_enable_cpp = b.option(bool, "SPIRV_CROSS_ENABLE_CPP", "Set to true to enable compiling of this spirv feature.") orelse false,
+            .spirv_cross_enable_reflect = b.option(bool, "SPIRV_CROSS_ENABLE_REFLECT", "Set to true to enable compiling of this spirv feature.") orelse true,
+            .spirv_cross_enable_c_api = b.option(bool, "SPIRV_CROSS_ENABLE_C_API", "Set to true to enable compiling of this spirv feature.") orelse true,
+            .spirv_cross_enable_util = b.option(bool, "SPIRV_CROSS_ENABLE_UTIL", "Set to true to enable compiling of this spirv feature.") orelse true,
+        };
+    }
+};
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -60,13 +172,8 @@ pub fn build(b: *std.Build) !void {
         sdl_shader = true;
     }
 
-    const spirv_cross_enable_glsl = b.option(bool, "SPIRV_CROSS_ENABLE_GLSL", "Set to true to enable compiling of this spirv feature.") orelse true;
-    const spirv_cross_enable_hlsl = b.option(bool, "SPIRV_CROSS_ENABLE_HLSL", "Set to true to enable compiling of this spirv feature.") orelse true;
-    const spirv_cross_enable_msl = b.option(bool, "SPIRV_CROSS_ENABLE_MSL", "Set to true to enable compiling of this spirv feature.") orelse true;
-    const spirv_cross_enable_cpp = b.option(bool, "SPIRV_CROSS_ENABLE_CPP", "Set to true to enable compiling of this spirv feature.") orelse false;
-    const spirv_cross_enable_reflect = b.option(bool, "SPIRV_CROSS_ENABLE_REFLECT", "Set to true to enable compiling of this spirv feature.") orelse true;
-    const spirv_cross_enable_c_api = b.option(bool, "SPIRV_CROSS_ENABLE_C_API", "Set to true to enable compiling of this spirv feature.") orelse true;
-    const spirv_cross_enable_util = b.option(bool, "SPIRV_CROSS_ENABLE_UTIL", "Set to true to enable compiling of this spirv feature.") orelse true;
+    const spirv_cross_enables = SpirvCrossEnables.init(b);
+    const dxc = b.dependency("dxc", .{});
 
     //Set the output directory to use a per-target folder
     const joined_target_str = try std.mem.concat(b.allocator, u8, &.{ @tagName(target.result.cpu.arch), "_", @tagName(target.result.os.tag), "_", @tagName(target.result.abi) });
@@ -97,25 +204,12 @@ pub fn build(b: *std.Build) !void {
         .files = &generic_src_files,
     });
 
-    var dxil_path: ?[]const u8 = null;
     if (target.result.os.tag == .windows) {
         sdl_lib.root_module.addCMacro("_WINDOWS", "");
         sdl_lib.root_module.addCMacro("_WIN32", "");
 
-        const win_sdk = try std.zig.WindowsSdk.find(b.allocator, target.result.cpu.arch);
-        defer std.zig.WindowsSdk.free(win_sdk, b.allocator);
-        if (win_sdk.windows10sdk == null) {
-            std.debug.print("Windows 10 SDK could not be found.", .{});
-            return;
-        } else {
-            const win_sdk_path = win_sdk.windows10sdk.?.path;
-            const win_sdk_ver = win_sdk.windows10sdk.?.version;
-            const winrt_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Include", win_sdk_ver, "winrt" });
-            defer b.allocator.free(winrt_path);
-            sdl_lib.addSystemIncludePath(lazy_from_path(winrt_path, b));
-
-            dxil_path = try std.fs.path.join(b.allocator, &.{ win_sdk_path, "Redist/D3D/x64/dxil.dll" });
-        }
+        const winrt_path = try get_winrt_path(b, target);
+        sdl_lib.addSystemIncludePath(lazy_from_path(winrt_path, b));
     }
 
     if (target.result.abi.isGnu()) {
@@ -154,7 +248,7 @@ pub fn build(b: *std.Build) !void {
     sdl_lib.installHeader(sdl.path("CREDITS.md"), "../lib/SDL_CREDITS.md");
     sdl_lib.installHeader(sdl.path("src/video/yuv2rgb/LICENSE"), "../lib/yuv2rgb_LICENSE");
     sdl_lib.installHeader(sdl.path("src/hidapi/LICENSE-bsd.txt"), "../lib/hidapi_LICENSE.txt");
-    
+
     sdl_lib.installHeadersDirectory(sdl.path("include"), "", .{ .include_extensions = &.{ ".h" } });
     sdl_lib.installHeadersDirectory(sdl.path("include/build_config"), "", .{ .include_extensions = &.{ ".h" } });
 
@@ -163,7 +257,9 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = optimize,
     });
+
     translate_sdl_header.addIncludePath(sdl.path("include"));
+    //translate_sdl_header.defineCMacroRaw("std=c11");
     if (target.result.os.tag == .windows) {
         translate_sdl_header.defineCMacroRaw("_WINDOWS=");
         translate_sdl_header.defineCMacroRaw("_WIN32=");
@@ -186,96 +282,51 @@ pub fn build(b: *std.Build) !void {
     sdl_module.sanitize_c = .off;
 
     if (sdl_shader) {
+
+        const sdl_shadercross = b.dependency("sdl_shadercross", .{});
+
         const sdl_shadercross_lib = b.addLibrary(.{
             .name = "sdl3_shadercross",
             .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
             .linkage = .static,
         });
 
-        const sdl_shadercross = b.dependency("sdl_shadercross", .{});
-        const spirv_cross = b.dependency("spirv_cross", .{});
-
-        sdl_shadercross_lib.addCSourceFiles(.{
-            .root = spirv_cross.path(""),
-            .files = &spirv_cross_core_src,
+        const sdl_shadercross_exe = b.addExecutable(.{
+            .name = "sdl3_shadercross",
+            .root_module = b.createModule(.{ .target=target, .optimize=optimize, }),
         });
 
-        if (spirv_cross_enable_glsl) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_glsl_src,
-            });
-        }
-
-        if (spirv_cross_enable_hlsl) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_hlsl_src,
-            });
-        }
-
-        if (spirv_cross_enable_msl) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_msl_src,
-            });
-        }
-
-        if (spirv_cross_enable_cpp) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_cpp_src,
-            });
-        }
-
-        if (spirv_cross_enable_reflect) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_reflect_src,
-            });
-        }
-
-        if (spirv_cross_enable_c_api) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_c_src,
-            });
-        }
-
-        if (spirv_cross_enable_util) {
-            sdl_shadercross_lib.addCSourceFiles(.{
-                .root = spirv_cross.path(""),
-                .files = &spirv_cross_util_src,
-            });
-        }
-
-        sdl_shadercross_lib.root_module.addCMacro("SPIRV_CROSS_VERSION", "0.64.0");
-        sdl_shadercross_lib.root_module.addCMacro("SDL_SHADERCROSS_SPIRVCROSS", "1");
-        if (target.result.os.tag == .windows) {
-            sdl_shadercross_lib.root_module.addCMacro("_WINDOWS", "");
-            //sdl_shadercross_lib.root_module.addCMacro("_WIN32", "");
-        }
-        if (target.result.abi.isGnu()) {
-            sdl_shadercross_lib.root_module.addCMacro("SDL_USE_BUILTIN_OPENGL_DEFINITIONS", "");
-        }
-
-        sdl_shadercross_lib.addCSourceFiles(.{
+        try install_shadercross(b, target, spirv_cross_enables, sdl_shadercross_lib, sdl_lib);
+        try install_shadercross(b, target, spirv_cross_enables, sdl_shadercross_exe, sdl_lib);
+        sdl_shadercross_exe.addCSourceFiles(.{
             .root = sdl_shadercross.path("src"),
-            .files = &.{
-                "SDL_shadercross.c",
-            },
+            .files = &.{ "cli.c"},
         });
-        sdl_shadercross_lib.addIncludePath(sdl_shadercross.path("include"));
-        sdl_shadercross_lib.addIncludePath(spirv_cross.path(""));
-        sdl_shadercross_lib.addIncludePath(sdl.path("include"));
-        sdl_shadercross_lib.linkLibrary(sdl_lib);
-        sdl_shadercross_lib.installHeader(sdl_shadercross.path("include/SDL3_shadercross/SDL_shadercross.h"), "SDL_shadercross.h");
+        sdl_shadercross_exe.root_module.linkLibrary(sdl_lib);
+        sdl_shadercross_exe.root_module.addCMacro("SDL_SHADERCROSS_SPIRVCROSS", "1");
 
-        //Licenses
-        sdl_shadercross_lib.installHeader(sdl_shadercross.path("LICENSE.txt"), "../lib/sdl3_shadercross_LICENSE.txt");
-        sdl_shadercross_lib.installHeader(spirv_cross.path("LICENSE"), "../lib/spirv_cross_LICENSE");
+        switch (target.result.os.tag) {
+            .windows => {
+                sdl_shadercross_exe.linkSystemLibrary("setupapi");
+                sdl_shadercross_exe.linkSystemLibrary("winmm");
+                sdl_shadercross_exe.linkSystemLibrary("gdi32");
+                sdl_shadercross_exe.linkSystemLibrary("imm32");
+                sdl_shadercross_exe.linkSystemLibrary("version");
+                sdl_shadercross_exe.linkSystemLibrary("oleaut32");
+                sdl_shadercross_exe.linkSystemLibrary("ole32");
+                sdl_shadercross_exe.linkSystemLibrary("User32");
+                sdl_shadercross_exe.linkSystemLibrary("Advapi32");
+                sdl_shadercross_exe.linkSystemLibrary("Shell32");
+            },
+            else => {
+                //TODO
+            },
+        }
 
-        b.installArtifact(sdl_shadercross_lib);
+        const installDxil_opt : ?*std.Build.Step.InstallFile = if (target.result.os.tag == .windows) b.addInstallBinFile(dxc.path("bin/x64/dxil.dll"), "dxil.dll") else null;
+        if (installDxil_opt) |installDxil| sdl_shadercross_exe.step.dependOn(&installDxil.step);
+        const installDxcomp_opt : ?*std.Build.Step.InstallFile = if (target.result.os.tag == .windows) b.addInstallBinFile(dxc.path("bin/x64/dxcompiler.dll"), "dxcompiler.dll") else null;
+        if (installDxcomp_opt) |installDxcomp| sdl_shadercross_exe.step.dependOn(&installDxcomp.step);
 
         translate_sdl_header.defineCMacroRaw("ZIG_SDL_SHADERCROSS=");
         translate_sdl_header.defineCMacroRaw("SDL_SHADERCROSS_SPIRVCROSS=1");
@@ -284,12 +335,10 @@ pub fn build(b: *std.Build) !void {
         if (build_demo) {
             const demo_exe = b.addExecutable(.{ .name = "demo", .root_module = b.createModule(.{ .target=target, .optimize=optimize, .root_source_file = b.path("example/demo.zig"), }), });
             demo_exe.root_module.addImport("sdl", sdl_module);
-            demo_exe.linkLibrary(sdl_lib);
-            demo_exe.linkLibrary(sdl_shadercross_lib);
-            if (target.result.os.tag == .windows) {
-                const installDxil = b.addInstallBinFile(.{ .cwd_relative = dxil_path.? }, "dxil.dll");
-                demo_exe.step.dependOn(&installDxil.step);
-            }
+            demo_exe.root_module.linkLibrary(sdl_lib);
+            demo_exe.root_module.linkLibrary(sdl_shadercross_lib);
+            demo_exe.root_module.addObjectFile(dxc.path("lib/x64/dxcompiler.lib"));
+            if (installDxil_opt) |installDxil| demo_exe.step.dependOn(&installDxil.step);
 
             b.installDirectory(.{
                 .source_dir = lazy_from_path("example/content", b),
